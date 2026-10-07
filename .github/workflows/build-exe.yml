@@ -1,0 +1,43 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+env:
+  # Имя exe задаётся один раз: его используют и сборка, и загрузка артефакта
+  APP_NAME: GeometryCalculationVPTK
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14" # должно совпадать с requires-python в pyproject.toml (>=3.14,<3.16)
+
+      - name: Install Poetry
+        run: pip install poetry
+
+      - name: Install dependencies
+        run: poetry install --no-root --with dev
+
+      # nicegui-pack = обёртка над PyInstaller, которая добавляет файлы NiceGUI
+      # без них приложение отвечает "Internal Server Error".
+      # --windowed НЕТ намеренно: приложение запускает сервер и открывает браузер,
+      # а окно консоли показывает его вывод и закрывает программу при закрытии.
+      - name: Build EXE with nicegui-pack
+        run: poetry run nicegui-pack --onefile --name ${{ env.APP_NAME }} main.py
+
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: VPTK-windows
+          path: dist/${{ env.APP_NAME }}.exe
+          if-no-files-found: error   # если exe не создан — job падает
