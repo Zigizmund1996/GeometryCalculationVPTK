@@ -16,7 +16,7 @@ from .logger import (
 )
 
 
-# Коды ошибок → русский текст. Английский текст — в localization.py (интерфейс).
+# Коды ошибок → русский текст. Английский текст — в local.py (интерфейс).
 ERRORS_RU = {
     "err_min2": "Заполните минимум 2 поля из 3",
     "err_exact2": "Заполните ровно 2 поля",
@@ -128,41 +128,82 @@ def _solve_q_m_out(q, m_out, n, k, km, kn, kh, eta):
 
 
 def _solve_d_m_out(d, m_out, n, k, km, kn, kh, eta):
-    def f(q):
-        dtk = dtk_from_q_m(q, m_out, n, k, km, kn, kh)
-        return d_from_q_dtk(q, dtk) - d
-    # D(q) немонотонна (есть минимум), поэтому ищем все смены знака на сетке
-    # и уточняем каждый корень через brentq.
     q_min, q_max, steps = 4.1, 100.0, 2000
-    grid = [q_min + (q_max - q_min) * i / steps for i in range(steps + 1)]
-    roots = []
-    prev_q, prev_f = grid[0], f(grid[0])
-    for cur_q in grid[1:]:
-        cur_f = f(cur_q)
-        if prev_f == 0:
-            roots.append(prev_q)
-        elif prev_f * cur_f < 0:
-            roots.append(brentq(f, prev_q, cur_q))
-        prev_q, prev_f = cur_q, cur_f
+
+    # Невязка как функция от q при фиксированном m
+    def f(q, m):
+        dtk = dtk_from_q_m(q, m, n, k, km, kn, kh)
+        return d_from_q_dtk(q, dtk) - d
+
+    # Все корни по q для фиксированного m (D(q) немонотонна — ищем все смены знака)
+    def roots_for_m(m):
+        roots = []
+        prev_q = q_min
+        prev_f = f(q_min, m)
+        for i in range(1, steps + 1):
+            cur_q = q_min + (q_max - q_min) * i / steps
+            cur_f = f(cur_q, m)
+            if prev_f == 0:
+                roots.append(prev_q)
+            elif prev_f * cur_f < 0:
+                roots.append(brentq(lambda qq, mm=m: f(qq, mm), prev_q, cur_q))
+            prev_q, prev_f = cur_q, cur_f
+        return roots
+
+    # 1) пробуем точное значение m_out
+    roots = roots_for_m(m_out)
+    m_used = m_out
+
+    # 2) если решения нет — ищем ближайшее m_out, при котором q существует
     if not roots:
-        log_error("solve.d_m_out", f"Не найдено решение для D={d}, M_вых={m_out}",
-                  d=d, m_out=m_out)
-        return _error("err_no_root")
+        span = 0.5          # ±50 % от m_out
+        n_scan = 200        # число проб по m
+        m_lo = max(1e-9, m_out * (1.0 - span))
+        m_hi = m_out * (1.0 + span)
+
+        best = None         # (|m - m_out|, m, q)
+        for i in range(n_scan + 1):
+            m = m_lo + (m_hi - m_lo) * i / n_scan
+            if m <= 0:
+                continue
+            r = roots_for_m(m)
+            if not r:
+                continue
+            q_cand = max(r)
+            dist = abs(m - m_out)
+            if best is None or dist < best[0]:
+                best = (dist, m, q_cand)
+
+        if best is None:
+            log_error("solve.d_m_out",
+                      f"Не найдено решение для D={d}, M_вых={m_out}",
+                      d=d, m_out=m_out)
+            return _error("err_no_root")
+
+        _, m_used, q_best = best
+        log_warn("solve.d_m_out.nearest",
+                 f"Точное решение для M_вых={m_out} не найдено; "
+                 f"использовано ближайшее M_вых={m_used:.6f}",
+                 m_out_target=m_out, m_out_used=m_used)
+        roots = [q_best]
+
     q = max(roots)  # большее q: больше тел качения, меньше dтк
     if len(roots) > 1:
         log_warn("solve.d_m_out.multi",
                  f"Найдено несколько решений q={[round(x, 4) for x in roots]}, "
                  f"выбрано q={q:.4f}",
                  roots=[round(x, 6) for x in roots])
-    dtk = dtk_from_q_m(q, m_out, n, k, km, kn, kh)
+
+    dtk = dtk_from_q_m(q, m_used, n, k, km, kn, kh)
     l = l_from_n_dtk(n, dtk)
     w = w_from_d_l(d, l)
-    m_in = m_in_from_m_out(m_out, q, eta)
+    m_in = m_in_from_m_out(m_used, q, eta)
 
     log_info("solve.D_M",
             f"D={d}, M_вых={m_out} → q={q:.4f}, dTK={dtk:.3f}, "
             f"Число тел качения={zsh_from_q(q)}, Число впадин={zg_from_q(q)}, M_вх={m_in:.3f}",
-            d=d, m_out=m_out, zsh=zsh_from_q(q), zg=zg_from_q(q),
+            d=d, m_out=m_out, m_out_used=round(m_used, 6),
+            zsh=zsh_from_q(q), zg=zg_from_q(q),
             q_solved=round(q, 6), dtk=round(dtk, 4),
             l=round(l, 3), w=round(w / 1000, 3), m_in=round(m_in, 4))
 
