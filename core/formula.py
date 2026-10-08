@@ -1,6 +1,7 @@
 """Формулы расчета ВПТК. Без UI, без состояния."""
 
 import math
+from .constans import GOST_ROLLER_DIAMETERS
 
 
 def km_from_tau(tau: float) -> float:
@@ -33,9 +34,15 @@ def d_from_q_dtk(q:float, dtk: float) -> float:
     return (2.06 / math.sin(math.pi / q) + 1.8) * dtk
 
 
-def l_from_n_dtk(n: int, dtk: float) -> float:
+def l_from_n_dtk(n: int, dtk: float, body_type: str) -> float:
     """Длина из n и dtk. Подшибнев 2022, ф. 3.17."""
-    return (1.2 * n + 1.8) * dtk
+    if body_type == "roller":
+        # Для ролика — берём длину из таблицы по ключу dTK
+        l_roller = GOST_ROLLER_DIAMETERS.get(dtk, dtk)  # если нет ключа — берём dTK
+        return (1.2 * n + 1.8) * l_roller
+    else:
+        # Для шарика — используем диаметр
+        return (1.2 * n + 1.8) * dtk
 
 
 def w_from_d_l(d: float, l: float) -> float:

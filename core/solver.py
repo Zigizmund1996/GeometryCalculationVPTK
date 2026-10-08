@@ -10,7 +10,7 @@ from .formula import (
     w_from_d_l, m_in_from_m_out, d_from_q_dtk,
     zsh_from_q, zg_from_q, km_from_tau
 )
-from .constans import round_up_to_gost, GOST_BALL_DIAMETERS, GOST_ROLLER_DIAMETERS
+from .constans import round_up_to_gost, gost_table
 from .logger import (
     log_error, log_info, log_warn
 )
@@ -66,7 +66,7 @@ def _apply_gost(result: VPTCResult, q: float, n: int, k: float,
     try:
         dtk_rounded = round_up_to_gost(result.dtk, body_type)
     except ValueError as e:
-        table = GOST_BALL_DIAMETERS if body_type == "ball" else GOST_ROLLER_DIAMETERS
+        table = gost_table(body_type)
         log_error("gost", str(e), dtk=round(result.dtk, 4), body_type=body_type)
         return _error("err_gost_range", dtk=result.dtk, dmax=table[-1])
     result.dtk_calc = result.dtk
@@ -74,7 +74,7 @@ def _apply_gost(result: VPTCResult, q: float, n: int, k: float,
     result.gost_rounded = True
 
     result.d = d_from_q_dtk(q, dtk_rounded)
-    result.l = l_from_n_dtk(n, dtk_rounded)
+    result.l = l_from_n_dtk(n, dtk_rounded, body_type)
     result.w = w_from_d_l(result.d, result.l)
     result.m_out = m_out_from_q_dtk(q, dtk_rounded, n, k, km, kn, kh)
     result.m_in = m_in_from_m_out(result.m_out, q, eta)
@@ -89,10 +89,10 @@ def _apply_gost(result: VPTCResult, q: float, n: int, k: float,
     return result
 
 
-def _solve_q_d(q: float, d: float, n: int, k: float, km: float, kn: float, kh: float, eta: float):
+def _solve_q_d(q: float, d: float, n: int, k: float, km: float, kn: float, kh: float, eta: float, body_type: str):
     dtk = d / (2.06 / math.sin(math.pi / q) + 1.8)
     m_out = m_out_from_q_dtk(q, dtk, n, k, km, kn, kh)
-    l = l_from_n_dtk(n, dtk)
+    l = l_from_n_dtk(n, dtk, body_type)
     w = w_from_d_l(d, l)
     m_in = m_in_from_m_out(m_out, q, eta)
 
@@ -108,10 +108,10 @@ def _solve_q_d(q: float, d: float, n: int, k: float, km: float, kn: float, kh: f
                       )
 
 
-def _solve_q_m_out(q, m_out, n, k, km, kn, kh, eta):
+def _solve_q_m_out(q, m_out, n, k, km, kn, kh, eta, body_type):
     dtk = dtk_from_q_m(q, m_out, n, k, km, kn, kh)
     d = d_from_q_dtk(q, dtk)
-    l = l_from_n_dtk(n, dtk)
+    l = l_from_n_dtk(n, dtk, body_type)
     w = w_from_d_l(d, l)
     m_in = m_in_from_m_out(m_out, q, eta)
 
@@ -127,7 +127,7 @@ def _solve_q_m_out(q, m_out, n, k, km, kn, kh, eta):
                       )
 
 
-def _solve_d_m_out(d, m_out, n, k, km, kn, kh, eta):
+def _solve_d_m_out(d, m_out, n, k, km, kn, kh, eta, body_type):
     q_min, q_max, steps = 4.1, 100.0, 2000
 
     # Невязка как функция от q при фиксированном m
@@ -195,7 +195,7 @@ def _solve_d_m_out(d, m_out, n, k, km, kn, kh, eta):
                  roots=[round(x, 6) for x in roots])
 
     dtk = dtk_from_q_m(q, m_used, n, k, km, kn, kh)
-    l = l_from_n_dtk(n, dtk)
+    l = l_from_n_dtk(n, dtk, body_type)
     w = w_from_d_l(d, l)
     m_in = m_in_from_m_out(m_used, q, eta)
 
@@ -252,11 +252,11 @@ def solve(q=None, d=None, m_out=None, n=1, body_type="roller",
 
     # --- выбор режима ---
     if q is None:
-        result = _solve_d_m_out(d, m_out, n, k, km, kn, kh, eta)
+        result = _solve_d_m_out(d, m_out, n, k, km, kn, kh, eta, body_type)
     elif d is None:
-        result = _solve_q_m_out(q, m_out, n, k, km, kn, kh, eta)
+        result = _solve_q_m_out(q, m_out, n, k, km, kn, kh, eta, body_type)
     else:
-        result = _solve_q_d(q, d, n, k, km, kn, kh, eta)
+        result = _solve_q_d(q, d, n, k, km, kn, kh, eta, body_type)
 
     if result.error:
         return result
