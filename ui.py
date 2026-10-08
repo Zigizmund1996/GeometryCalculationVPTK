@@ -27,7 +27,7 @@ def build_ui():
     # Ключи совпадают с аргументами solve(): q, d, m_out, n, tau, kn, eta
     state = {
         "lang": DEFAULT_LANG,
-        "q": None, "d": None, "m_out": None,
+        "q": None, "d": None, "m_out": None, "m_in": None,
         "n": 1,
         "body_type": "roller",
         "tau": 150.0,
@@ -61,6 +61,7 @@ def build_ui():
     def run_solve():
         return solve(
             q=state["q"], d=state["d"], m_out=state["m_out"],
+            m_in=state["m_in"],
             n=int(state["n"]), body_type=state["body_type"],
             tau=state["tau"], kn=state["kn"], eta=state["eta"],
             use_gost=state["use_gost"],
@@ -161,6 +162,11 @@ def build_ui():
                 ui.label(tr("line_w", v=result.w / 1000))
 
                 ui.label(tr("line_q", v=result.q))
+                if result.q_raw is not None:
+                    dev = (result.m_in - result.m_in_requested) / result.m_in_requested * 100
+                    ui.label(tr("q_rounded", q_raw=result.q_raw, q=int(result.q),
+                                m_in_req=result.m_in_requested, m_in=result.m_in,
+                                dev=dev)).classes("text-orange-600 text-sm")
                 ui.separator()
                 ui.label(tr("line_zsh", v=result.zsh)).classes("font-bold")
                 ui.label(tr("line_zg", v=result.zg)).classes("font-bold")
@@ -245,6 +251,8 @@ def build_ui():
                           on_change=setter("d", float, allow_none=True))
                 ui.number(label=tr("m_label"), value=state["m_out"],
                           on_change=setter("m_out", float, allow_none=True))
+                ui.number(label=tr("m_in_label"), value=state["m_in"],
+                          on_change=setter("m_in", float, allow_none=True))
 
         with ui.card():
             ui.label(tr("construction")).classes("text-lg font-bold")
