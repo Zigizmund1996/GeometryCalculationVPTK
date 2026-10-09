@@ -28,16 +28,40 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-root --with dev
 
+      # Узнаём версию из pyproject.toml и короткий SHA коммита
+      - name: Get version info
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(poetry version -s)
+          if [ -z "$VERSION" ]; then echo "::error::Пустая версия из poetry"; exit 1; fi
+          SHORT_SHA="${GITHUB_SHA::7}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION-$SHORT_SHA" >> "$GITHUB_OUTPUT"
+
       # nicegui-pack = обёртка над PyInstaller, которая добавляет файлы NiceGUI
       # без них приложение отвечает "Internal Server Error".
       # --windowed НЕТ намеренно: приложение запускает сервер и открывает браузер,
       # а окно консоли показывает его вывод и закрывает программу при закрытии.
       - name: Build EXE with nicegui-pack
-        run: poetry run nicegui-pack --onefile --name ${{ env.APP_NAME }} main.py
+        shell: bash
+        run: |
+          set -euo pipefail
+          poetry run nicegui-pack --onefile --name "${{ env.APP_NAME }}" main.py
+          ls -la dist
+
+      - name: Rename EXE with version
+        shell: bash
+        run: |
+          set -euo pipefail
+          mv "dist/${{ env.APP_NAME }}.exe" \
+             "dist/${{ env.APP_NAME }}-${{ steps.version.outputs.tag }}.exe"
 
       - name: Upload EXE artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: VPTK-windows
-          path: dist/${{ env.APP_NAME }}.exe
+          path: dist/${{ env.APP_NAME }}-${{ steps.version.outputs.tag }}.exe
           if-no-files-found: error   # если exe не создан — job падает
