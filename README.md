@@ -265,7 +265,7 @@ vptk/
 │   ├── geometry.py
 │   ├── export.py
 │   └── logger.py
-├── literature/                        # source PDFs
+├── literature/                       # source PDFs
 ├── local.py                          # RU / EN strings
 ├── main.py
 ├── ui.py
