@@ -296,7 +296,7 @@ poetry run python main.py
 
 VPTK is free and open source. If it saved you time, you can support development with Monero:
 
-**XMR:** `<86CuofuVXfoUBb6tHufqHXZG4fbniEhmMUumNfBst2f7S2vpQrVJ69Bd7LqiLqDWz2VZ1Gxj2ePa2355Gc68CyZd7jXpjpS>`
+**XMR:** `86CuofuVXfoUBb6tHufqHXZG4fbniEhmMUumNfBst2f7S2vpQrVJ69Bd7LqiLqDWz2VZ1Gxj2ePa2355Gc68CyZd7jXpjpS`
 
 <sub>Monero keeps donations private — no need to leave a name. Stars and bug reports help just as much ⭐</sub>
 
