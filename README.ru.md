@@ -97,8 +97,8 @@
 Нужны **Python 3.14+** и [Poetry](https://python-poetry.org/).
 
 ```bash
-git clone https://github.com/<your-username>/vptk.git
-cd vptk
+git clone https://github.com/Zigizmund1996/GeometryCalculationVPTK.git
+cd GeometryCalculationVPTK
 poetry install --no-root
 poetry run python main.py
 ```
